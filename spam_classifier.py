@@ -4,6 +4,7 @@ import re
 import nltk
 import pickle
 import os
+import json  # <--- NEW: To save metrics
 import matplotlib.pyplot as plt
 import seaborn as sns
 from nltk.corpus import stopwords
@@ -12,21 +13,14 @@ from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.calibration import CalibratedClassifierCV
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_recall_fscore_support
 from sklearn.preprocessing import MinMaxScaler
 from scipy.sparse import hstack
 
-# Set backend to avoid popup windows (Crucial for Streamlit)
 plt.switch_backend('Agg') 
 
 def train_and_evaluate():
-    """
-    Main function to train the model, generate graphs, and save artifacts.
-    Returns: None
-    """
     print("--- STARTING AUTOMATED TRAINING ---")
-    
-    # 1. SETUP
     nltk.download('stopwords', quiet=True)
     ps = PorterStemmer()
     stop_words = set(stopwords.words('english'))
@@ -48,14 +42,12 @@ def train_and_evaluate():
             1 if re.search(r'[$£€]', text) else 0
         ]
 
-    # 2. LOAD DATA
     if not os.path.exists('SMSSpamCollection'):
         raise FileNotFoundError("Dataset 'SMSSpamCollection' missing.")
 
     df = pd.read_csv('SMSSpamCollection', sep='\t', names=['label', 'text'])
     df['label'] = df['label'].map({'ham': 0, 'spam': 1})
 
-    # Inject modern spam (Data Augmentation)
     modern_spam = [
         "URGENT! VERIFY YOUR ACCOUNT.", "YOU WON A TRIP TO THE BAHAMAS!",
         "urgent! verify your account.", "get 50% off for a family of 2 to bahamas.",
@@ -65,7 +57,6 @@ def train_and_evaluate():
     injection = pd.DataFrame([{'label': 1, 'text': t} for t in modern_spam] * 50)
     df = pd.concat([df, injection], ignore_index=True)
 
-    # 3. PROCESSING
     df['cleaned_text'] = df['text'].apply(clean_text)
     vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1,2))
     X_text = vectorizer.fit_transform(df['cleaned_text'])
@@ -79,31 +70,42 @@ def train_and_evaluate():
 
     X_train, X_test, y_train, y_test = train_test_split(X_final, y, test_size=0.2, random_state=42)
 
-    # 4. TRAINING
-    # Model A: Standalone SVM for Feature Importance Graph
+    # TRAINING
     svc_graph = LinearSVC(class_weight='balanced', dual='auto', max_iter=3000)
     svc_graph.fit(X_train, y_train)
 
-    # Model B: Calibrated Model for Predictions
     base_svc = LinearSVC(class_weight='balanced', dual='auto', max_iter=3000)
     calibrated_model = CalibratedClassifierCV(base_svc) 
     calibrated_model.fit(X_train, y_train)
 
-    # 5. GENERATE GRAPHS
-    # A. Confusion Matrix
+    #CALCULATE METRICS
     y_pred = calibrated_model.predict(X_test)
-    cm = confusion_matrix(y_test, y_pred)
     
+    # Calculate Precision, Recall, F1
+    precision, recall, f1, _ = precision_recall_fscore_support(y_test, y_pred, average='binary')
+    accuracy = accuracy_score(y_test, y_pred)
+    
+    # Save metrics to JSON
+    metrics_data = {
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1
+    }
+    with open('metrics.json', 'w') as f:
+        json.dump(metrics_data, f)
+    
+    print(f"   - Metrics Saved: Acc={accuracy:.2f}, Prec={precision:.2f}")
+
+    #GENERATE GRAPHS
+    cm = confusion_matrix(y_test, y_pred)
     plt.figure(figsize=(6, 5))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Safe', 'Spam'], yticklabels=['Safe', 'Spam'])
     plt.title('Confusion Matrix')
-    plt.ylabel('Actual')
-    plt.xlabel('Predicted')
     plt.tight_layout()
     plt.savefig('confusion_matrix.png')
     plt.close()
 
-    # B. Feature Importance
     feature_names = vectorizer.get_feature_names_out().tolist() + ['Length', 'Has_Link', 'Caps_Ratio', 'Exclamations', 'Currency']
     coefs = svc_graph.coef_.flatten()
     top_indices = coefs.argsort()[-10:]
@@ -113,18 +115,15 @@ def train_and_evaluate():
     plt.figure(figsize=(10, 6))
     sns.barplot(x=top_scores, y=top_features, palette='viridis')
     plt.title('Top 10 Spam Predictors')
-    plt.xlabel('SVM Weight')
     plt.tight_layout()
     plt.savefig('feature_importance.png')
     plt.close()
 
-    # 6. SAVE ARTIFACTS
     with open('model.pkl', 'wb') as f: pickle.dump(calibrated_model, f)
     with open('vectorizer.pkl', 'wb') as f: pickle.dump(vectorizer, f)
     with open('scaler.pkl', 'wb') as f: pickle.dump(scaler, f)
     
     print("--- TRAINING COMPLETE ---")
 
-# Allow running as standalone script too
 if __name__ == "__main__":
     train_and_evaluate()
