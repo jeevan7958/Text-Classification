@@ -24,12 +24,6 @@ This project solves common NLP pitfalls, such as:
 * **Automated Pipeline:** The application auto-detects missing models and triggers a training sequence on the first run.
 * **Interactive Dashboard:** A Streamlit UI with real-time inference, probability scoring, and static performance evaluation graphs.
 
-* You have already implemented the code for this in `spam_classifier.py`. Now, you need the **written explanation** to put in your Report or README to satisfy these specific assignment requirements.
-
-Here is the professional justification and analysis you can copy-paste (or adapt) for your submission.
-
----
-
 ### **1. Modeling Strategy**
 
 **Model Selected:** **Linear Support Vector Machine (LinearSVC)**
@@ -37,8 +31,6 @@ Here is the professional justification and analysis you can copy-paste (or adapt
 1. **High-Dimensionality Handling:** TF-IDF vectorization creates thousands of features (one for each word). SVMs are mathematically superior at finding the optimal "hyperplane" (boundary) in high-dimensional sparse data compared to Logistic Regression.
 2. **Feature Interaction:** Naive Bayes assumes all features are "independent" (unrelated). However, in my Hybrid approach, a keyword like "Urgent" is *strongly correlated* with the "Caps Lock Ratio" feature. SVMs handle these interactions better than Naive Bayes.
 3. **Margin Maximization:** SVMs try to maximize the distance between the nearest "Safe" message and "Spam" message. This makes the model more robust to new, unseen variations of spam (obfuscated text) compared to simple probability counting.
-
----
 
 ### **2. Evaluation & Observations**
 
