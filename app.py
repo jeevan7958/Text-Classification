@@ -120,7 +120,7 @@ with tab1:
                 st.warning("Please enter some text.")
 
     with col2:
-        st.info("ℹ**System Architecture**")
+        st.info("**System Architecture**")
         st.markdown("""
         **Hybrid SVM Engine**
         
@@ -144,7 +144,7 @@ with tab2:
             metrics = json.load(f)
         
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Accuracy", f"{metrics['accuracy']:.1%}")
+        m1.metric("Accuracy", f"{metrics['accuracy']:.1%}", help="Overall Correct Predictions")
         m2.metric("Precision", f"{metrics['precision']:.1%}", help="Minimizes False Positives")
         m3.metric("Recall", f"{metrics['recall']:.1%}", help="Catches actual Spam")
         m4.metric("F1 Score", f"{metrics['f1']:.1%}", help="Balanced Metric")
